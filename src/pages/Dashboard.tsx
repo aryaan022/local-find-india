@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -59,8 +58,8 @@ const savedBusinessesMock = [
   },
 ];
 
-// Mock data for recent activity
-const recentActivityMock = [
+// Mock data for recent activity - fixed type to use the correct string literals
+const recentActivityMock: ActivityItem[] = [
   { id: "1", type: "visit", business: "Sharma General Store", date: "2023-09-15" },
   { id: "2", type: "review", business: "Fashion Hub", date: "2023-09-10", rating: 4 },
   { id: "3", type: "save", business: "Patel Electronics", date: "2023-09-05" },

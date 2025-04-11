@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -165,12 +164,18 @@ const BusinessDashboard = () => {
     }
     
     try {
+      const productToInsert = {
+        business_id: business.id,
+        name: newProduct.name || '',
+        description: newProduct.description,
+        price: newProduct.price,
+        image_url: newProduct.image_url,
+        is_available: newProduct.is_available ?? true
+      };
+      
       const { data, error } = await supabase
         .from('products')
-        .insert({
-          ...newProduct,
-          business_id: business.id
-        })
+        .insert(productToInsert)
         .select()
         .single();
       
