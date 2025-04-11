@@ -1,53 +1,85 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Navigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MapPin, Star, Heart, Clock, Bell, MessageSquare } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import ChatBot from '@/components/chatbot/ChatBot';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+// Types
+interface SavedBusiness {
+  id: string;
+  name: string;
+  category: string;
+  rating: number;
+  reviews: number;
+  address: string;
+  image: string;
+}
+
+interface ActivityItem {
+  id: string;
+  type: 'visit' | 'review' | 'save';
+  business: string;
+  date: string;
+  rating?: number;
+}
+
+interface Notification {
+  id: string;
+  title: string;
+  time: string;
+}
 
 // Mock data for saved businesses
-const savedBusinesses = [
+const savedBusinessesMock = [
   {
-    id: 1,
+    id: "1",
     name: "Sharma General Store",
     category: "Grocery & Essentials",
     rating: 4.8,
     reviews: 124,
     address: "Connaught Place, New Delhi",
-    image: "https://images.unsplash.com/photo-1604719312566-8912e9667d94?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8Nnx8Z3JvY2VyeSUyMHN0b3JlfGVufDB8fDB8fA%3D%3D&auto=format&fit=crop&w=500&q=60",
+    image: "https://images.pexels.com/photos/264636/pexels-photo-264636.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
   },
   {
-    id: 2,
+    id: "2",
     name: "Patel Electronics",
     category: "Electronics & Tech",
     rating: 4.6,
     reviews: 89,
     address: "MG Road, Bangalore",
-    image: "https://images.unsplash.com/photo-1546054454-aa26e2b734c7?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8ZWxlY3Ryb25pY3MlMjBzdG9yZXxlbnwwfHwwfHw%3D&auto=format&fit=crop&w=500&q=60",
+    image: "https://images.pexels.com/photos/1029757/pexels-photo-1029757.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
   },
 ];
 
 // Mock data for recent activity
-const recentActivity = [
-  { id: 1, type: "visit", business: "Sharma General Store", date: "2023-09-15" },
-  { id: 2, type: "review", business: "Fashion Hub", date: "2023-09-10", rating: 4 },
-  { id: 3, type: "save", business: "Patel Electronics", date: "2023-09-05" },
+const recentActivityMock = [
+  { id: "1", type: "visit", business: "Sharma General Store", date: "2023-09-15" },
+  { id: "2", type: "review", business: "Fashion Hub", date: "2023-09-10", rating: 4 },
+  { id: "3", type: "save", business: "Patel Electronics", date: "2023-09-05" },
 ];
 
 // Mock data for notifications
-const notifications = [
-  { id: 1, title: "New products at Sharma General Store", time: "2 hours ago" },
-  { id: 2, title: "Weekend sale at Fashion Hub", time: "1 day ago" },
-  { id: 3, title: "Your review was liked", time: "3 days ago" },
+const notificationsMock = [
+  { id: "1", title: "New products at Sharma General Store", time: "2 hours ago" },
+  { id: "2", title: "Weekend sale at Fashion Hub", time: "1 day ago" },
+  { id: "3", title: "Your review was liked", time: "3 days ago" },
 ];
 
 const Dashboard = () => {
-  const { isAuthenticated, userType, profile } = useAuth();
+  const { isAuthenticated, userType, profile, user } = useAuth();
   const [showChatbot, setShowChatbot] = useState(false);
+  const [savedBusinesses, setSavedBusinesses] = useState<SavedBusiness[]>([]);
+  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>(recentActivityMock);
+  const [notifications, setNotifications] = useState<Notification[]>(notificationsMock);
+  const [loading, setLoading] = useState(true);
   
   // Get user's display name
   const displayName = profile?.first_name && profile?.last_name 
@@ -64,9 +96,61 @@ const Dashboard = () => {
     }
     return "C";
   };
+
+  // Fetch saved businesses
+  useEffect(() => {
+    const fetchSavedBusinesses = async () => {
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        
+        // In a real implementation, we would have a saved_businesses table
+        // For now, we'll use the mock data
+        setSavedBusinesses(savedBusinessesMock);
+        
+        // Fetch businesses from Supabase when the saved_businesses table is created
+        // const { data, error } = await supabase
+        //   .from('saved_businesses')
+        //   .select(`
+        //     business_id,
+        //     businesses (
+        //       id, name, address, city, state, average_rating, total_reviews, cover_url,
+        //       categories (name)
+        //     )
+        //   `)
+        //   .eq('user_id', user.id);
+        
+        // if (error) throw error;
+        
+        // const formattedBusinesses = data.map(item => ({
+        //   id: item.businesses.id,
+        //   name: item.businesses.name,
+        //   category: item.businesses.categories?.name || 'Uncategorized',
+        //   rating: item.businesses.average_rating || 0,
+        //   reviews: item.businesses.total_reviews || 0,
+        //   address: `${item.businesses.address}, ${item.businesses.city}`,
+        //   image: item.businesses.cover_url || placeholderImage,
+        // }));
+        
+        // setSavedBusinesses(formattedBusinesses);
+      } catch (error) {
+        console.error('Error fetching saved businesses:', error);
+        toast.error('Failed to load saved businesses');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchSavedBusinesses();
+  }, [user]);
   
   // Redirect if not authenticated or not a customer
-  if (!isAuthenticated || userType !== 'customer') {
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
+  
+  if (userType !== 'customer') {
     return <Navigate to="/login" />;
   }
   
@@ -79,7 +163,12 @@ const Dashboard = () => {
               <h1 className="text-3xl font-bold mb-2">{displayName}'s Dashboard</h1>
               <p className="text-gray-600">Welcome back! Manage your saved businesses and activity.</p>
             </div>
-            <Button className="mt-4 md:mt-0 bg-india-blue hover:bg-india-blue/90">Search New Businesses</Button>
+            <Button 
+              className="mt-4 md:mt-0 bg-india-blue hover:bg-india-blue/90"
+              onClick={() => window.location.href = '/businesses'}
+            >
+              Search New Businesses
+            </Button>
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -163,7 +252,11 @@ const Dashboard = () => {
                 
                 <TabsContent value="saved" className="mt-6">
                   <h2 className="text-xl font-semibold mb-4">Saved Businesses</h2>
-                  {savedBusinesses.length > 0 ? (
+                  {loading ? (
+                    <div className="text-center py-8">
+                      <p>Loading saved businesses...</p>
+                    </div>
+                  ) : savedBusinesses.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {savedBusinesses.map(business => (
                         <Card key={business.id} className="overflow-hidden card-hover">
@@ -173,6 +266,10 @@ const Dashboard = () => {
                                 src={business.image} 
                                 alt={business.name} 
                                 className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = "https://images.pexels.com/photos/3965545/pexels-photo-3965545.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1";
+                                }}
                               />
                             </div>
                             <div className="w-2/3 p-4">
@@ -187,7 +284,11 @@ const Dashboard = () => {
                                 <p className="text-sm text-gray-600 line-clamp-1">{business.address}</p>
                               </div>
                               <div className="mt-3 flex space-x-2">
-                                <Button size="sm" className="bg-india-blue hover:bg-india-blue/90">
+                                <Button 
+                                  size="sm" 
+                                  className="bg-india-blue hover:bg-india-blue/90"
+                                  onClick={() => window.location.href = `/business/${business.id}`}
+                                >
                                   Visit
                                 </Button>
                                 <Button size="sm" variant="outline">
@@ -204,7 +305,7 @@ const Dashboard = () => {
                       <Heart className="h-12 w-12 mx-auto text-gray-400 mb-4" />
                       <h3 className="text-lg font-semibold mb-2">No saved businesses yet</h3>
                       <p className="text-gray-600 mb-4">When you find businesses you like, save them here for quick access.</p>
-                      <Button>Explore Businesses</Button>
+                      <Button onClick={() => window.location.href = '/businesses'}>Explore Businesses</Button>
                     </div>
                   )}
                 </TabsContent>
