@@ -148,7 +148,7 @@ const Index = () => {
                   "Focused on connecting businesses with customers through innovative solutions."
                 </p>
                 <a 
-                  href="#" 
+                  href="https://github.com/Shubham-uk05" 
                   target="_blank" 
                   rel="noopener noreferrer" 
                   className="flex items-center justify-center text-india-blue dark:text-india-orange hover:underline gap-1"
