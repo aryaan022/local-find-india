@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +11,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import ChatBot from '@/components/chatbot/ChatBot';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Business } from '@/types/business';
 
 // Types
 interface SavedBusiness {
@@ -79,6 +81,7 @@ const Dashboard = () => {
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>(recentActivityMock);
   const [notifications, setNotifications] = useState<Notification[]>(notificationsMock);
   const [loading, setLoading] = useState(true);
+  const [nearbyBusinesses, setNearbyBusinesses] = useState<Business[]>([]);
   
   // Get user's display name
   const displayName = profile?.first_name && profile?.last_name 
@@ -96,6 +99,31 @@ const Dashboard = () => {
     return "C";
   };
 
+  // Fetch nearby businesses
+  useEffect(() => {
+    const fetchNearbyBusinesses = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('businesses')
+          .select(`
+            *,
+            categories:category_id (
+              name, slug
+            )
+          `)
+          .eq('status', 'approved')
+          .limit(3);
+        
+        if (error) throw error;
+        setNearbyBusinesses(data || []);
+      } catch (error) {
+        console.error('Error fetching nearby businesses:', error);
+      }
+    };
+    
+    fetchNearbyBusinesses();
+  }, []);
+
   // Fetch saved businesses
   useEffect(() => {
     const fetchSavedBusinesses = async () => {
@@ -107,32 +135,6 @@ const Dashboard = () => {
         // In a real implementation, we would have a saved_businesses table
         // For now, we'll use the mock data
         setSavedBusinesses(savedBusinessesMock);
-        
-        // Fetch businesses from Supabase when the saved_businesses table is created
-        // const { data, error } = await supabase
-        //   .from('saved_businesses')
-        //   .select(`
-        //     business_id,
-        //     businesses (
-        //       id, name, address, city, state, average_rating, total_reviews, cover_url,
-        //       categories (name)
-        //     )
-        //   `)
-        //   .eq('user_id', user.id);
-        
-        // if (error) throw error;
-        
-        // const formattedBusinesses = data.map(item => ({
-        //   id: item.businesses.id,
-        //   name: item.businesses.name,
-        //   category: item.businesses.categories?.name || 'Uncategorized',
-        //   rating: item.businesses.average_rating || 0,
-        //   reviews: item.businesses.total_reviews || 0,
-        //   address: `${item.businesses.address}, ${item.businesses.city}`,
-        //   image: item.businesses.cover_url || placeholderImage,
-        // }));
-        
-        // setSavedBusinesses(formattedBusinesses);
       } catch (error) {
         console.error('Error fetching saved businesses:', error);
         toast.error('Failed to load saved businesses');
@@ -160,13 +162,13 @@ const Dashboard = () => {
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
             <div>
               <h1 className="text-3xl font-bold mb-2">{displayName}'s Dashboard</h1>
-              <p className="text-gray-600">Welcome back! Manage your saved businesses and activity.</p>
+              <p className="text-gray-600">Welcome back! Discover local businesses and manage your activity.</p>
             </div>
             <Button 
               className="mt-4 md:mt-0 bg-india-blue hover:bg-india-blue/90"
               onClick={() => window.location.href = '/businesses'}
             >
-              Search New Businesses
+              Search Businesses
             </Button>
           </div>
           
@@ -230,6 +232,42 @@ const Dashboard = () => {
                       <div className="text-gray-600 text-sm">Interactions</div>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+              
+              {/* Nearby Businesses */}
+              <Card className="mt-6">
+                <CardHeader className="pb-4">
+                  <CardTitle>Nearby Businesses</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {nearbyBusinesses.length === 0 ? (
+                    <div className="p-4 text-center">
+                      <p className="text-gray-500">No nearby businesses found</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {nearbyBusinesses.map(business => (
+                        <div key={business.id} className="p-4 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-medium">{business.name}</h3>
+                            <div className="flex items-center">
+                              <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
+                              <span className="ml-1 text-xs font-medium">{business.average_rating?.toFixed(1) || "New"}</span>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">{business.categories?.name}</p>
+                          <Button 
+                            variant="link" 
+                            className="text-india-blue p-0 h-auto mt-1 text-sm"
+                            onClick={() => navigate(`/business/${business.id}`)}
+                          >
+                            View Details
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -345,7 +383,7 @@ const Dashboard = () => {
                               <p className="text-sm text-gray-500">{activity.date}</p>
                             </div>
                           </div>
-                          {activity.type === 'review' && (
+                          {activity.type === 'review' && activity.rating !== undefined && (
                             <div className="flex items-center">
                               {[...Array(5)].map((_, i) => (
                                 <Star 

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +10,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Eye, EyeOff } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
+import { Textarea } from '@/components/ui/textarea';
 
 interface RegisterFormProps {
   userType: 'customer' | 'business';
@@ -100,6 +102,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ userType }) => {
       const metadata: Record<string, any> = { 
         name: formData.name,
         phone: formData.phone,
+        user_type: userType,
       };
       
       if (userType === 'business') {
@@ -127,6 +130,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ userType }) => {
         throw error;
       }
 
+      if (!data.user) {
+        throw new Error('Registration failed');
+      }
+
       // Set user type in local auth context
       login(userType);
       
@@ -138,19 +145,23 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ userType }) => {
       if (userType === 'customer') {
         navigate('/dashboard');
       } else {
-        // For business users, we'll need to create a business entry
+        // For business users, we'll create a business entry with pending status
+        const slug = businessFormData.businessName.toLowerCase().replace(/\s+/g, '-');
+        
         const { error: businessError } = await supabase
           .from('businesses')
           .insert([
             {
-              owner_id: data.user?.id,
+              owner_id: data.user.id,
               name: businessFormData.businessName,
-              slug: businessFormData.businessName.toLowerCase().replace(/\s+/g, '-'),
+              slug: slug,
               description: businessFormData.description,
               address: businessFormData.address,
               city: businessFormData.city,
               state: businessFormData.state,
-              pincode: businessFormData.pincode
+              pincode: businessFormData.pincode,
+              status: 'pending', // Default status is pending until approved
+              category_id: businessFormData.category
             }
           ]);
 
@@ -162,6 +173,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ userType }) => {
             variant: 'destructive',
           });
         } else {
+          toast({
+            title: 'Business Registration Pending',
+            description: 'Your business has been registered and is pending verification. You will be notified once it is approved.',
+          });
           navigate('/business-dashboard');
         }
       }
@@ -323,14 +338,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ userType }) => {
               
               <div className="space-y-2">
                 <Label htmlFor="description">Business Description</Label>
-                <textarea
+                <Textarea
                   id="description"
                   name="description"
-                  className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                   placeholder="Describe your business..."
                   value={businessFormData.description}
                   onChange={handleBusinessInputChange}
-                ></textarea>
+                />
               </div>
             </>
           )}

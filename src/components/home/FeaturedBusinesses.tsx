@@ -1,67 +1,21 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Star, MapPin, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { Business } from '@/types/business';
 
-// Updated mock data with more reliable image URLs
-const businesses = [
-  {
-    id: 1,
-    name: "Sharma General Store",
-    category: "Grocery & Essentials",
-    rating: 4.8,
-    reviews: 124,
-    address: "Connaught Place, New Delhi",
-    phone: "+91 98765 43210",
-    image: "https://images.pexels.com/photos/264636/pexels-photo-264636.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    featured: true
-  },
-  {
-    id: 2,
-    name: "Patel Electronics",
-    category: "Electronics & Tech",
-    rating: 4.6,
-    reviews: 89,
-    address: "MG Road, Bangalore",
-    phone: "+91 98765 43211",
-    image: "https://images.pexels.com/photos/1029757/pexels-photo-1029757.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    featured: true
-  },
-  {
-    id: 3,
-    name: "Royal Furniture House",
-    category: "Home & Furniture",
-    rating: 4.5,
-    reviews: 76,
-    address: "Linking Road, Mumbai",
-    phone: "+91 98765 43212",
-    image: "https://images.pexels.com/photos/1350789/pexels-photo-1350789.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    featured: true
-  },
-  {
-    id: 4,
-    name: "Green Farms Fresh Produce",
-    category: "Grocery & Essentials",
-    rating: 4.7,
-    reviews: 103,
-    address: "Sector 18, Noida",
-    phone: "+91 98765 43213",
-    image: "https://images.pexels.com/photos/2733918/pexels-photo-2733918.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    featured: true
-  }
-];
-
-const BusinessCard = ({ business }: { business: typeof businesses[0] }) => {
+const BusinessCard = ({ business }: { business: Business }) => {
   const navigate = useNavigate();
   
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
       <div className="relative h-48 overflow-hidden">
         <img 
-          src={business.image} 
+          src={business.cover_url || "https://images.pexels.com/photos/3965545/pexels-photo-3965545.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"} 
           alt={business.name} 
           className="w-full h-full object-cover transition-transform hover:scale-105"
           onError={(e) => {
@@ -69,22 +23,17 @@ const BusinessCard = ({ business }: { business: typeof businesses[0] }) => {
             target.src = "https://images.pexels.com/photos/3965545/pexels-photo-3965545.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1";
           }}
         />
-        {business.featured && (
-          <Badge className="absolute top-2 right-2 bg-india-orange">
-            Featured
-          </Badge>
-        )}
       </div>
       
       <CardContent className="pt-6">
         <div className="flex items-center justify-between mb-2">
           <Badge variant="outline" className="bg-gray-100 dark:bg-gray-700">
-            {business.category}
+            {business.categories?.name || "Uncategorized"}
           </Badge>
           <div className="flex items-center">
             <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
-            <span className="ml-1 text-sm font-medium">{business.rating}</span>
-            <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">({business.reviews})</span>
+            <span className="ml-1 text-sm font-medium">{business.average_rating?.toFixed(1) || "New"}</span>
+            <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">({business.total_reviews || 0})</span>
           </div>
         </div>
         
@@ -92,13 +41,17 @@ const BusinessCard = ({ business }: { business: typeof businesses[0] }) => {
         
         <div className="flex items-start gap-1 mt-2">
           <MapPin className="h-4 w-4 text-gray-500 dark:text-gray-400 mt-0.5" />
-          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1">{business.address}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1">
+            {business.address ? `${business.address}, ` : ''}{business.city}, {business.state}
+          </p>
         </div>
         
-        <div className="flex items-center gap-1 mt-1">
-          <Phone className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-          <p className="text-sm text-gray-600 dark:text-gray-300">{business.phone}</p>
-        </div>
+        {business.phone && (
+          <div className="flex items-center gap-1 mt-1">
+            <Phone className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+            <p className="text-sm text-gray-600 dark:text-gray-300">{business.phone}</p>
+          </div>
+        )}
       </CardContent>
       
       <CardFooter>
@@ -115,6 +68,40 @@ const BusinessCard = ({ business }: { business: typeof businesses[0] }) => {
 
 const FeaturedBusinesses = () => {
   const navigate = useNavigate();
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchFeaturedBusinesses = async () => {
+      try {
+        setLoading(true);
+        
+        const { data, error } = await supabase
+          .from('businesses')
+          .select(`
+            *,
+            categories:category_id (
+              name, slug
+            )
+          `)
+          .eq('status', 'approved')
+          .order('average_rating', { ascending: false })
+          .limit(4);
+        
+        if (error) {
+          console.error('Error fetching businesses:', error);
+        } else {
+          setBusinesses(data || []);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchFeaturedBusinesses();
+  }, []);
   
   return (
     <section className="py-16 px-4 dark:bg-gray-900">
@@ -135,11 +122,34 @@ const FeaturedBusinesses = () => {
           </Button>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {businesses.map((business) => (
-            <BusinessCard key={business.id} business={business} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((_, index) => (
+              <Card key={index} className="overflow-hidden">
+                <div className="h-48 bg-gray-200 animate-pulse"></div>
+                <CardContent className="p-4">
+                  <div className="h-6 bg-gray-200 animate-pulse mb-2 w-3/4"></div>
+                  <div className="h-4 bg-gray-200 animate-pulse mb-4 w-1/2"></div>
+                  <div className="h-4 bg-gray-200 animate-pulse w-full"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : businesses.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {businesses.map((business) => (
+              <BusinessCard key={business.id} business={business} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-10">
+            <h3 className="text-xl font-semibold mb-2">No businesses found</h3>
+            <p className="text-gray-600 mb-6">
+              Be the first to register your business!
+            </p>
+            <Button onClick={() => navigate('/business-register')}>Register Business</Button>
+          </div>
+        )}
       </div>
     </section>
   );

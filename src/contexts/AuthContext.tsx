@@ -63,10 +63,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAuthenticated(!!session);
         setUser(session?.user ?? null);
         
-        // Get user type from local storage
+        // Get user type from metadata or local storage
         if (session?.user) {
-          const savedUserType = localStorage.getItem('userType') as UserType;
-          setUserType(savedUserType);
+          const userMetadata = session.user.user_metadata;
+          if (userMetadata && userMetadata.user_type) {
+            setUserType(userMetadata.user_type as UserType);
+            localStorage.setItem('userType', userMetadata.user_type);
+          } else {
+            // Fallback to localStorage if not in metadata
+            const savedUserType = localStorage.getItem('userType') as UserType;
+            setUserType(savedUserType);
+          }
           fetchProfile(session.user.id);
         } else {
           setUserType(null);
@@ -81,8 +88,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        const savedUserType = localStorage.getItem('userType') as UserType;
-        setUserType(savedUserType);
+        const userMetadata = session.user.user_metadata;
+        if (userMetadata && userMetadata.user_type) {
+          setUserType(userMetadata.user_type as UserType);
+          localStorage.setItem('userType', userMetadata.user_type);
+        } else {
+          // Fallback to localStorage if not in metadata
+          const savedUserType = localStorage.getItem('userType') as UserType;
+          setUserType(savedUserType);
+        }
         fetchProfile(session.user.id);
       }
     });

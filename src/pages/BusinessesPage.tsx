@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,76 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Star, MapPin, Phone, Search, Filter } from 'lucide-react';
-
-// Updated mock data with more reliable image URLs
-const businesses = [
-  {
-    id: 1,
-    name: "Sharma General Store",
-    category: "Grocery & Essentials",
-    rating: 4.8,
-    reviews: 124,
-    address: "Connaught Place, New Delhi",
-    phone: "+91 98765 43210",
-    image: "https://images.pexels.com/photos/264636/pexels-photo-264636.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    featured: true
-  },
-  {
-    id: 2,
-    name: "Patel Electronics",
-    category: "Electronics & Tech",
-    rating: 4.6,
-    reviews: 89,
-    address: "MG Road, Bangalore",
-    phone: "+91 98765 43211",
-    image: "https://images.pexels.com/photos/1029757/pexels-photo-1029757.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    featured: true
-  },
-  {
-    id: 3,
-    name: "Royal Furniture House",
-    category: "Home & Furniture",
-    rating: 4.5,
-    reviews: 76,
-    address: "Linking Road, Mumbai",
-    phone: "+91 98765 43212",
-    image: "https://images.pexels.com/photos/1350789/pexels-photo-1350789.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    featured: true
-  },
-  {
-    id: 4,
-    name: "Green Farms Fresh Produce",
-    category: "Grocery & Essentials",
-    rating: 4.7,
-    reviews: 103,
-    address: "Sector 18, Noida",
-    phone: "+91 98765 43213",
-    image: "https://images.pexels.com/photos/2733918/pexels-photo-2733918.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    featured: true
-  },
-  {
-    id: 5,
-    name: "Fashion Hub",
-    category: "Clothing & Fashion",
-    rating: 4.4,
-    reviews: 58,
-    address: "Commercial Street, Bangalore",
-    phone: "+91 98765 43214",
-    image: "https://images.pexels.com/photos/3965545/pexels-photo-3965545.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    featured: false
-  },
-  {
-    id: 6,
-    name: "Wellness Pharmacy",
-    category: "Health & Wellness",
-    rating: 4.9,
-    reviews: 142,
-    address: "Vasant Kunj, New Delhi",
-    phone: "+91 98765 43215",
-    image: "https://images.pexels.com/photos/4021808/pexels-photo-4021808.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    featured: false
-  }
-];
+import { supabase } from '@/integrations/supabase/client';
+import { Business } from '@/types/business';
 
 const BusinessesPage = () => {
   const navigate = useNavigate();
@@ -85,27 +17,105 @@ const BusinessesPage = () => {
   const initialLocation = searchParams.get('location') || '';
   const initialCategory = searchParams.get('category') || '';
   
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [location, setLocation] = useState(initialLocation);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [sortBy, setSortBy] = useState('rating');
   
+  // Fetch businesses and categories when component mounts
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Fetch categories
+        const { data: categoriesData, error: categoriesError } = await supabase
+          .from('categories')
+          .select('id, name, slug');
+          
+        if (categoriesError) {
+          console.error('Error fetching categories:', categoriesError);
+        } else {
+          setCategories(categoriesData || []);
+        }
+        
+        // Fetch businesses that are approved
+        let query = supabase
+          .from('businesses')
+          .select(`
+            *,
+            categories:category_id (
+              name, slug
+            )
+          `)
+          .eq('status', 'approved');
+        
+        // Apply search filters if provided
+        if (initialSearch) {
+          query = query.ilike('name', `%${initialSearch}%`);
+        }
+        
+        if (initialLocation) {
+          query = query.or(`city.ilike.%${initialLocation}%,state.ilike.%${initialLocation}%,pincode.eq.${initialLocation}`);
+        }
+        
+        if (initialCategory && initialCategory !== "All Categories") {
+          // Find category id from slug
+          const categoryObj = categoriesData?.find(cat => cat.slug === initialCategory.toLowerCase().replace(/\s+/g, '-'));
+          if (categoryObj) {
+            query = query.eq('category_id', categoryObj.id);
+          }
+        }
+        
+        const { data: businessesData, error: businessesError } = await query;
+        
+        if (businessesError) {
+          console.error('Error fetching businesses:', businessesError);
+        } else {
+          setBusinesses(businessesData || []);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [initialSearch, initialLocation, initialCategory]);
+  
   // Filter and sort businesses based on search parameters
   const filteredBusinesses = businesses
     .filter(business => {
-      // Apply search term filter
-      if (searchTerm && !business.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+      // Apply search term filter if changed after initial load
+      if (searchTerm !== initialSearch && !business.name.toLowerCase().includes(searchTerm.toLowerCase())) {
         return false;
       }
       
-      // Apply location filter
-      if (location && !business.address.toLowerCase().includes(location.toLowerCase())) {
-        return false;
+      // Apply location filter if changed after initial load
+      if (location !== initialLocation) {
+        const locationMatch = 
+          business.city?.toLowerCase().includes(location.toLowerCase()) || 
+          business.state?.toLowerCase().includes(location.toLowerCase()) || 
+          business.pincode === location;
+        
+        if (!locationMatch) return false;
       }
       
-      // Apply category filter
-      if (selectedCategory && business.category.toLowerCase() !== selectedCategory.toLowerCase()) {
-        return false;
+      // Apply category filter if changed after initial load
+      if (selectedCategory !== initialCategory && selectedCategory && selectedCategory !== "All Categories") {
+        // Find category id from slug
+        const categoryObj = categories.find(cat => 
+          cat.slug === selectedCategory.toLowerCase().replace(/\s+/g, '-') ||
+          cat.name === selectedCategory
+        );
+        
+        if (categoryObj && business.category_id !== categoryObj.id) {
+          return false;
+        }
       }
       
       return true;
@@ -113,25 +123,12 @@ const BusinessesPage = () => {
     .sort((a, b) => {
       // Sort by selected criteria
       if (sortBy === 'rating') {
-        return b.rating - a.rating;
+        return (b.average_rating || 0) - (a.average_rating || 0);
       } else if (sortBy === 'reviews') {
-        return b.reviews - a.reviews;
+        return (b.total_reviews || 0) - (a.total_reviews || 0);
       }
       return 0;
     });
-  
-  const categories = [
-    "All Categories",
-    "Grocery & Essentials",
-    "Food & Beverages",
-    "Clothing & Fashion",
-    "Home & Furniture",
-    "Services & Repairs",
-    "Health & Wellness",
-    "Beauty & Personal Care",
-    "Education & Learning",
-    "Electronics & Tech"
-  ];
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,9 +137,13 @@ const BusinessesPage = () => {
     if (searchTerm) params.append('search', searchTerm);
     if (location) params.append('location', location);
     if (selectedCategory && selectedCategory !== "All Categories") {
-      params.append('category', selectedCategory);
+      const categorySlug = selectedCategory.toLowerCase().replace(/\s+/g, '-');
+      params.append('category', categorySlug);
     }
     navigate({ search: params.toString() });
+    
+    // Reload page to trigger the useEffect
+    window.location.href = `/businesses?${params.toString()}`;
   };
   
   return (
@@ -169,7 +170,7 @@ const BusinessesPage = () => {
                 <MapPin className="h-5 w-5 text-gray-400" />
                 <Input
                   type="text"
-                  placeholder="Location (City, Area)"
+                  placeholder="Location (City, State, PIN)"
                   className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-transparent"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
@@ -191,9 +192,10 @@ const BusinessesPage = () => {
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
               >
-                {categories.map((category, index) => (
-                  <option key={index} value={category === "All Categories" ? "" : category}>
-                    {category}
+                <option value="">All Categories</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.name}>
+                    {category.name}
                   </option>
                 ))}
               </select>
@@ -213,41 +215,57 @@ const BusinessesPage = () => {
           
           {/* Results Stats */}
           <div className="mb-6">
-            <p className="text-gray-600">
-              Found {filteredBusinesses.length} businesses
-              {searchTerm ? ` matching "${searchTerm}"` : ""}
-              {selectedCategory ? ` in ${selectedCategory}` : ""}
-              {location ? ` near ${location}` : ""}
-            </p>
+            {loading ? (
+              <p className="text-gray-600">Loading businesses...</p>
+            ) : (
+              <p className="text-gray-600">
+                Found {filteredBusinesses.length} businesses
+                {searchTerm ? ` matching "${searchTerm}"` : ""}
+                {selectedCategory && selectedCategory !== "All Categories" ? ` in ${selectedCategory}` : ""}
+                {location ? ` near ${location}` : ""}
+              </p>
+            )}
           </div>
           
           {/* Businesses List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredBusinesses.length > 0 ? (
-              filteredBusinesses.map((business) => (
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((_, index) => (
+                <Card key={index} className="overflow-hidden">
+                  <div className="h-48 bg-gray-200 animate-pulse"></div>
+                  <CardContent className="p-4">
+                    <div className="h-6 bg-gray-200 animate-pulse mb-2 w-3/4"></div>
+                    <div className="h-4 bg-gray-200 animate-pulse mb-4 w-1/2"></div>
+                    <div className="h-4 bg-gray-200 animate-pulse w-full"></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredBusinesses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredBusinesses.map((business) => (
                 <Card key={business.id} className="overflow-hidden cursor-pointer card-hover" onClick={() => navigate(`/business/${business.id}`)}>
                   <div className="relative h-48 overflow-hidden">
                     <img 
-                      src={business.image} 
+                      src={business.cover_url || "https://images.pexels.com/photos/3965545/pexels-photo-3965545.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"} 
                       alt={business.name} 
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = "https://images.pexels.com/photos/3965545/pexels-photo-3965545.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1";
+                      }}
                     />
-                    {business.featured && (
-                      <Badge className="absolute top-2 right-2 bg-india-orange">
-                        Featured
-                      </Badge>
-                    )}
                   </div>
                   
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between mb-2">
                       <Badge variant="outline" className="bg-gray-100">
-                        {business.category}
+                        {business.categories?.name || "Uncategorized"}
                       </Badge>
                       <div className="flex items-center">
                         <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
-                        <span className="ml-1 text-sm font-medium">{business.rating}</span>
-                        <span className="ml-1 text-xs text-gray-500">({business.reviews})</span>
+                        <span className="ml-1 text-sm font-medium">{business.average_rating?.toFixed(1) || "New"}</span>
+                        <span className="ml-1 text-xs text-gray-500">({business.total_reviews || 0})</span>
                       </div>
                     </div>
                     
@@ -255,36 +273,41 @@ const BusinessesPage = () => {
                     
                     <div className="flex items-start gap-1 mt-2">
                       <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
-                      <p className="text-sm text-gray-600 line-clamp-1">{business.address}</p>
+                      <p className="text-sm text-gray-600 line-clamp-1">
+                        {business.address ? `${business.address}, ` : ''}{business.city}, {business.state}
+                        {business.pincode ? ` - ${business.pincode}` : ''}
+                      </p>
                     </div>
                     
-                    <div className="flex items-center gap-1 mt-1">
-                      <Phone className="h-4 w-4 text-gray-500" />
-                      <p className="text-sm text-gray-600">{business.phone}</p>
-                    </div>
+                    {business.phone && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <Phone className="h-4 w-4 text-gray-500" />
+                        <p className="text-sm text-gray-600">{business.phone}</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
-              ))
-            ) : (
-              <div className="col-span-full text-center py-10">
-                <h3 className="text-xl font-semibold mb-2">No businesses found</h3>
-                <p className="text-gray-600 mb-6">
-                  We couldn't find any businesses matching your search criteria.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSearchTerm('');
-                    setLocation('');
-                    setSelectedCategory('');
-                    navigate('/businesses');
-                  }}
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="col-span-full text-center py-10">
+              <h3 className="text-xl font-semibold mb-2">No businesses found</h3>
+              <p className="text-gray-600 mb-6">
+                We couldn't find any businesses matching your search criteria.
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchTerm('');
+                  setLocation('');
+                  setSelectedCategory('');
+                  navigate('/businesses');
+                }}
+              >
+                Clear Filters
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </Layout>
