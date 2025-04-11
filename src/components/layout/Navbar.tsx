@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { Search, Menu, User, ShoppingBag, LogOut } from 'lucide-react';
+import { Search, Menu, User, ShoppingBag, LogOut, Shield } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,9 +13,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const Navbar = () => {
-  const { isAuthenticated, userType, logout } = useAuth();
+  const { isAuthenticated, userType, logout, user } = useAuth();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  
+  // Check if user is admin (you can adjust this logic based on your admin identification method)
+  const isAdmin = user?.email && ['admin@example.com'].includes(user.email);
 
   return (
     <header className="sticky top-0 z-40 w-full bg-background border-b shadow-sm">
@@ -59,6 +62,13 @@ const Navbar = () => {
                 Contact
               </Link>
             </li>
+            {isAdmin && (
+              <li>
+                <Link to="/admin" className="text-foreground hover:text-india-blue dark:hover:text-india-orange font-medium flex items-center gap-1">
+                  <Shield className="h-4 w-4" /> Admin
+                </Link>
+              </li>
+            )}
           </ul>
         </nav>
         
@@ -81,6 +91,12 @@ const Navbar = () => {
                 {userType === 'business' && (
                   <DropdownMenuItem onClick={() => navigate('/business-dashboard')}>
                     Business Dashboard
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/admin')}>
+                    <Shield className="mr-2 h-4 w-4" />
+                    Admin Dashboard
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onClick={logout} className="text-red-600">
