@@ -91,7 +91,8 @@ const FeaturedBusinesses = () => {
         if (error) {
           console.error('Error fetching businesses:', error);
         } else {
-          setBusinesses(data || []);
+          // Cast the response to match our Business type
+          setBusinesses(data as unknown as Business[]);
         }
       } catch (error) {
         console.error('Error:', error);

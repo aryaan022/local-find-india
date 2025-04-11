@@ -23,4 +23,10 @@ export interface Business {
   total_reviews?: number;
   created_at?: string;
   updated_at?: string;
+  // Add the joined categories field from Supabase
+  categories?: {
+    id?: string;
+    name?: string;
+    slug?: string;
+  };
 }

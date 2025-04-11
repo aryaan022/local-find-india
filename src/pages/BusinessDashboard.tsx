@@ -64,7 +64,8 @@ const BusinessDashboard = () => {
         }
         
         if (businessData) {
-          setBusiness(businessData);
+          // Cast the response to match our Business type
+          setBusiness(businessData as unknown as Business);
           
           // Fetch products for this business
           const { data: productsData, error: productsError } = await supabase

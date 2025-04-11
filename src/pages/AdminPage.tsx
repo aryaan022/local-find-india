@@ -50,7 +50,7 @@ const AdminPage = () => {
         .eq('status', 'pending');
       
       if (pendingError) throw pendingError;
-      setPendingBusinesses(pendingData || []);
+      setPendingBusinesses(pendingData as unknown as Business[]);
       
       // Fetch approved businesses
       const { data: approvedData, error: approvedError } = await supabase
@@ -59,7 +59,7 @@ const AdminPage = () => {
         .eq('status', 'approved');
       
       if (approvedError) throw approvedError;
-      setApprovedBusinesses(approvedData || []);
+      setApprovedBusinesses(approvedData as unknown as Business[]);
       
       // Fetch rejected businesses
       const { data: rejectedData, error: rejectedError } = await supabase
@@ -68,7 +68,7 @@ const AdminPage = () => {
         .eq('status', 'rejected');
       
       if (rejectedError) throw rejectedError;
-      setRejectedBusinesses(rejectedData || []);
+      setRejectedBusinesses(rejectedData as unknown as Business[]);
     } catch (error: any) {
       console.error('Error fetching businesses:', error);
       toast({

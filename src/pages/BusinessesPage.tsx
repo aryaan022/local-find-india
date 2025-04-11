@@ -18,7 +18,7 @@ const BusinessesPage = () => {
   const initialCategory = searchParams.get('category') || '';
   
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
+  const [categories, setCategories] = useState<{id: string, name: string, slug?: string}[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [searchTerm, setSearchTerm] = useState(initialSearch);
@@ -75,7 +75,8 @@ const BusinessesPage = () => {
         if (businessesError) {
           console.error('Error fetching businesses:', businessesError);
         } else {
-          setBusinesses(businessesData || []);
+          // Cast the response to match our Business type
+          setBusinesses(businessesData as unknown as Business[]);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -107,9 +108,9 @@ const BusinessesPage = () => {
       
       // Apply category filter if changed after initial load
       if (selectedCategory !== initialCategory && selectedCategory && selectedCategory !== "All Categories") {
-        // Find category id from slug
+        // Find category id from slug or name
         const categoryObj = categories.find(cat => 
-          cat.slug === selectedCategory.toLowerCase().replace(/\s+/g, '-') ||
+          (cat.slug && cat.slug === selectedCategory.toLowerCase().replace(/\s+/g, '-')) ||
           cat.name === selectedCategory
         );
         

@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,7 +12,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Business } from '@/types/business';
 
-// Types
 interface SavedBusiness {
   id: string;
   name: string;
@@ -38,7 +36,6 @@ interface Notification {
   time: string;
 }
 
-// Mock data for saved businesses
 const savedBusinessesMock = [
   {
     id: "1",
@@ -60,14 +57,12 @@ const savedBusinessesMock = [
   },
 ];
 
-// Mock data for recent activity - fixed type to use the correct string literals
 const recentActivityMock: ActivityItem[] = [
   { id: "1", type: "visit", business: "Sharma General Store", date: "2023-09-15" },
   { id: "2", type: "review", business: "Fashion Hub", date: "2023-09-10", rating: 4 },
   { id: "3", type: "save", business: "Patel Electronics", date: "2023-09-05" },
 ];
 
-// Mock data for notifications
 const notificationsMock = [
   { id: "1", title: "New products at Sharma General Store", time: "2 hours ago" },
   { id: "2", title: "Weekend sale at Fashion Hub", time: "1 day ago" },
@@ -76,6 +71,7 @@ const notificationsMock = [
 
 const Dashboard = () => {
   const { isAuthenticated, userType, profile, user } = useAuth();
+  const navigate = useNavigate();
   const [showChatbot, setShowChatbot] = useState(false);
   const [savedBusinesses, setSavedBusinesses] = useState<SavedBusiness[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>(recentActivityMock);
@@ -83,12 +79,10 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [nearbyBusinesses, setNearbyBusinesses] = useState<Business[]>([]);
   
-  // Get user's display name
   const displayName = profile?.first_name && profile?.last_name 
     ? `${profile.first_name} ${profile.last_name}`
     : profile?.first_name || "Customer";
   
-  // Get user's initials for avatar
   const getInitials = () => {
     if (profile?.first_name && profile?.last_name) {
       return `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase();
@@ -99,7 +93,6 @@ const Dashboard = () => {
     return "C";
   };
 
-  // Fetch nearby businesses
   useEffect(() => {
     const fetchNearbyBusinesses = async () => {
       try {
@@ -115,7 +108,7 @@ const Dashboard = () => {
           .limit(3);
         
         if (error) throw error;
-        setNearbyBusinesses(data || []);
+        setNearbyBusinesses(data as unknown as Business[]);
       } catch (error) {
         console.error('Error fetching nearby businesses:', error);
       }
@@ -124,7 +117,6 @@ const Dashboard = () => {
     fetchNearbyBusinesses();
   }, []);
 
-  // Fetch saved businesses
   useEffect(() => {
     const fetchSavedBusinesses = async () => {
       if (!user) return;
@@ -132,8 +124,6 @@ const Dashboard = () => {
       try {
         setLoading(true);
         
-        // In a real implementation, we would have a saved_businesses table
-        // For now, we'll use the mock data
         setSavedBusinesses(savedBusinessesMock);
       } catch (error) {
         console.error('Error fetching saved businesses:', error);
@@ -146,7 +136,6 @@ const Dashboard = () => {
     fetchSavedBusinesses();
   }, [user]);
   
-  // Redirect if not authenticated or not a customer
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
@@ -173,7 +162,6 @@ const Dashboard = () => {
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column - Profile & Navigation */}
             <div>
               <Card className="mb-6">
                 <CardHeader className="pb-4">
@@ -235,7 +223,6 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
               
-              {/* Nearby Businesses */}
               <Card className="mt-6">
                 <CardHeader className="pb-4">
                   <CardTitle>Nearby Businesses</CardTitle>
@@ -272,7 +259,6 @@ const Dashboard = () => {
               </Card>
             </div>
             
-            {/* Right Column - Main Content */}
             <div className="lg:col-span-2">
               <Tabs defaultValue="saved">
                 <TabsList>
